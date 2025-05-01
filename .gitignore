@@ -1,0 +1,33 @@
+# 忽略Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略虚拟环境
+venv/
+env/
+ENV/
+
+# 忽略日志文件
+*.log
+
+# 忽略输出文件
+*.md
+!README.md
+details/
+response_page_*.html
+trial_detail_*.html
+debug_*.html
+
+# 忽略个人配置文件（包含敏感信息）
+config_personal.json
+
+# 忽略IDE文件
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
