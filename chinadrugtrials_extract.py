@@ -136,13 +136,13 @@ class ChinaDrugTrialsSearcher:
 
         return detail
 
-    def search(self, keywords, page=1, indication="", reg_no="", state=""):
+    def search(self, keywords, page=1, indication="", reg_no="", state="", drugs_name="", ckm_index="1"):
         """
         搜索临床试验
         """
         data = {
             "id": "",
-            "ckm_index": "",
+            "ckm_index": ckm_index,
             "sort": "desc",
             "sort2": "",
             "rule": "CTR",
@@ -152,7 +152,7 @@ class ChinaDrugTrialsSearcher:
             "reg_no": reg_no,
             "indication": indication,
             "case_no": "",
-            "drugs_name": "",
+            "drugs_name": drugs_name,
             "drugs_type": "",
             "appliers": "",
             "communities": "",
@@ -162,7 +162,7 @@ class ChinaDrugTrialsSearcher:
         }
 
         logging.info(f"发送请求到 {self.search_url}")
-        logging.info(f"搜索参数: 关键词={keywords}, 页码={page}, 适应症={indication}, 登记号={reg_no}, 状态={state}")
+        logging.info(f"搜索参数: 关键词={keywords}, 页码={page}, 适应症={indication}, 登记号={reg_no}, 状态={state}, 药物名称={drugs_name}, ckm_index={ckm_index}")
 
         try:
             # 使用会话对象发送请求
@@ -198,10 +198,17 @@ class ChinaDrugTrialsSearcher:
             has_table = "<table" in response.text.lower() and "<tr" in response.text.lower()
             logging.info(f"响应内容是否包含表格元素: {has_table}")
 
+            # 创建输出目录（如果不存在）
+            output_dir = os.path.join(os.getcwd(), "output")
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+                logging.info(f"创建输出目录: {output_dir}")
+
             # 保存原始响应内容到文件，用于调试
-            with open(f"response_page_{page}.html", "w", encoding="utf-8") as f:
+            debug_file = os.path.join(output_dir, f"response_page_{page}.html")
+            with open(debug_file, "w", encoding="utf-8") as f:
                 f.write(response.text)
-            logging.info(f"已保存原始响应内容到 response_page_{page}.html")
+            logging.info(f"已保存原始响应内容到 {debug_file}")
 
             return response.text
         except requests.exceptions.RequestException as e:

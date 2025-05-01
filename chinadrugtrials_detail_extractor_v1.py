@@ -476,11 +476,14 @@ def main():
     parser.add_argument('-i', '--indication', help='适应症')
     parser.add_argument('-r', '--reg_no', help='登记号')
     parser.add_argument('-s', '--state', help='试验状态')
+    parser.add_argument('-d', '--drugs-name', help='药物名称')
+    parser.add_argument('-c', '--ckm-index', default="1", help='ckm_index参数，默认为1')
     parser.add_argument('-p', '--pages', type=int, help='最大页数，如果不指定则获取所有页面')
     parser.add_argument('-o', '--output', help='输出文件名，默认为日期_关键词_details.md')
-    parser.add_argument('-d', '--detail-dir', help='详细信息输出目录，默认为output/details')
+    parser.add_argument('--detail-dir', help='详细信息输出目录，默认为output/details')
     parser.add_argument('-l', '--local', action='store_true', help='使用本地文件作为响应内容，而不是从网站获取')
     parser.add_argument('--no-auto-pages', action='store_true', help='不自动获取所有页面，只获取第一页')
+    parser.add_argument('--debug', action='store_true', help='调试模式，保存更多中间文件')
 
     args = parser.parse_args()
 
@@ -521,6 +524,8 @@ def main():
         args.indication or "",
         args.reg_no or "",
         args.state or "",
+        args.drugs_name or "",
+        args.ckm_index,
         args.local,  # 使用本地文件
         not args.no_auto_pages  # 自动获取所有页面
     )
