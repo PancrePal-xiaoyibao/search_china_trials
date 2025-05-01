@@ -475,7 +475,8 @@ def main():
     parser.add_argument('-f', '--filter', help='过滤关键词，用空格分隔多个关键词')
     parser.add_argument('-i', '--indication', help='适应症')
     parser.add_argument('-r', '--reg_no', help='登记号')
-    parser.add_argument('-s', '--state', help='试验状态')
+    parser.add_argument('-s', '--state', default="进行中", help='试验状态，默认为"进行中"')
+    parser.add_argument('-a', '--all-states', action='store_true', help='搜索所有试验状态，覆盖默认的"进行中"状态')
     parser.add_argument('-d', '--drugs-name', help='药物名称')
     parser.add_argument('-c', '--ckm-index', default="1", help='ckm_index参数，默认为1')
     parser.add_argument('-p', '--pages', type=int, help='最大页数，如果不指定则获取所有页面')
@@ -516,6 +517,12 @@ def main():
     print(f"搜索关键词: {search_keywords}")
     print(f"过滤关键词: {', '.join(filter_keywords)}")
 
+    # 处理state参数
+    if args.all_states:
+        state = ""  # 空字符串表示搜索所有状态
+    else:
+        state = args.state or "进行中"  # 默认为"进行中"
+
     # 搜索临床试验
     trials = searcher.search_all_pages(
         search_keywords,
@@ -523,7 +530,7 @@ def main():
         args.pages,
         args.indication or "",
         args.reg_no or "",
-        args.state or "",
+        state,  # 使用处理后的state值
         args.drugs_name or "",
         args.ckm_index,
         args.local,  # 使用本地文件

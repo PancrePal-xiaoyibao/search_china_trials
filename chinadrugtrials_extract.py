@@ -22,11 +22,12 @@ class ChinaDrugTrialsSearcher:
     搜索中国药物临床试验登记与信息公示平台
     """
     def __init__(self):
+        """
+        初始化搜索器
+        """
         self.base_url = "http://www.chinadrugtrials.org.cn"
         self.search_url = f"{self.base_url}/clinicaltrials.searchlist.dhtml"
-        self.session = requests.Session()  # 使用会话保持Cookie
-
-        # 请求头
+        self.session = requests.Session()
         self.headers = {
             "Host": "www.chinadrugtrials.org.cn",
             "Cache-Control": "max-age=0",
@@ -39,39 +40,21 @@ class ChinaDrugTrialsSearcher:
             "Connection": "keep-alive",
             "Content-Type": "application/x-www-form-urlencoded",
         }
-
-        # 初始化会话
-        self._init_session()
-
-    def _init_session(self):
-        """
-        初始化会话，访问首页获取必要的Cookie
-        """
+        
+        # 初始化会话，访问首页获取Cookie
+        logging.info("初始化会话，访问首页获取Cookie")
         try:
-            logging.info("初始化会话，访问首页获取Cookie")
-            # 先访问首页
-            index_url = f"{self.base_url}/index.html"
-            response = self.session.get(index_url, headers=self.headers)
-            logging.info(f"首页访问状态码: {response.status_code}")
-
-            if response.status_code == 200:
-                logging.info("成功访问首页")
-                # 再访问搜索页面
-                search_page_url = f"{self.base_url}/clinicaltrials.prosearch.dhtml"
-                response = self.session.get(search_page_url, headers=self.headers)
-                logging.info(f"搜索页面访问状态码: {response.status_code}")
-
-                if response.status_code == 200:
-                    logging.info("成功访问搜索页面")
-                    # 打印当前会话的Cookie
-                    cookies = self.session.cookies.get_dict()
-                    logging.info(f"当前会话Cookie: {cookies}")
-                else:
-                    logging.error(f"访问搜索页面失败，状态码: {response.status_code}")
+            response = self.session.get(self.base_url, headers=self.headers)
+            status_code = response.status_code
+            logging.info(f"首页访问状态码: {status_code}")
+            
+            # 接受 200 和 202 状态码
+            if status_code not in [200, 202]:
+                logging.error(f"访问首页失败，状态码: {status_code}")
             else:
-                logging.error(f"访问首页失败，状态码: {response.status_code}")
-        except Exception as e:
-            logging.error(f"初始化会话时发生错误: {e}")
+                logging.info("成功访问首页，获取Cookie")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"访问首页异常: {e}")
 
     def get_trial_detail(self, trial_id, ckm_index="1"):
         """
@@ -136,9 +119,18 @@ class ChinaDrugTrialsSearcher:
 
         return detail
 
-    def search(self, keywords, page=1, indication="", reg_no="", state="", drugs_name="", ckm_index="1"):
+    def search(self, keywords, page=1, indication="", reg_no="", state="进行中", drugs_name="", ckm_index="1"):
         """
         搜索临床试验
+        
+        参数:
+            keywords: 搜索关键词
+            page: 页码
+            indication: 适应症（二级搜索参数）
+            reg_no: 登记号（二级搜索参数）
+            state: 试验状态（二级搜索参数），默认为"进行中"
+            drugs_name: 药物名称（二级搜索参数）
+            ckm_index: ckm_index参数
         """
         data = {
             "id": "",
@@ -146,7 +138,7 @@ class ChinaDrugTrialsSearcher:
             "sort": "desc",
             "sort2": "",
             "rule": "CTR",
-            "secondLevel": "0",
+            "secondLevel": "0",  # 0表示使用二级搜索
             "currentpage": str(page),
             "keywords": keywords,
             "reg_no": reg_no,
@@ -330,7 +322,7 @@ class ChinaDrugTrialsSearcher:
         logging.warning("无法确定总页数，默认为1页")
         return 1
 
-    def search_all_pages(self, keywords, filter_keywords=None, max_pages=None, indication="", reg_no="", state="", use_local_file=False, auto_all_pages=True):
+    def search_all_pages(self, keywords, filter_keywords=None, max_pages=None, indication="", reg_no="", state="进行中", drugs_name="", ckm_index="1", use_local_file=False, auto_all_pages=True):
         """
         搜索所有页面的临床试验
 
@@ -340,7 +332,9 @@ class ChinaDrugTrialsSearcher:
             max_pages: 最大页数，如果为None则获取所有页面
             indication: 适应症
             reg_no: 登记号
-            state: 试验状态
+            state: 试验状态，默认为"进行中"
+            drugs_name: 药物名称
+            ckm_index: ckm_index参数
             use_local_file: 是否使用本地文件
             auto_all_pages: 是否自动获取所有页面
         """
@@ -359,7 +353,7 @@ class ChinaDrugTrialsSearcher:
 
         # 如果本地文件不存在或不使用本地文件，则从网站获取
         if not html_content:
-            html_content = self.search(keywords, page, indication, reg_no, state)
+            html_content = self.search(keywords, page, indication, reg_no, state, drugs_name, ckm_index)
 
         if not html_content:
             logging.error("无法获取第一页内容")
@@ -399,7 +393,7 @@ class ChinaDrugTrialsSearcher:
 
             # 如果本地文件不存在或不使用本地文件，则从网站获取
             if not html_content:
-                html_content = self.search(keywords, page, indication, reg_no, state)
+                html_content = self.search(keywords, page, indication, reg_no, state, drugs_name, ckm_index)
 
             if not html_content:
                 logging.error(f"无法获取第 {page} 页内容")
@@ -473,11 +467,13 @@ def main():
     parser.add_argument('-f', '--filter', help='过滤关键词，用空格分隔多个关键词')
     parser.add_argument('-i', '--indication', help='适应症')
     parser.add_argument('-r', '--reg_no', help='登记号')
-    parser.add_argument('-s', '--state', help='试验状态')
+    parser.add_argument('-s', '--state', default="进行中", help='试验状态，默认为"进行中"')
+    parser.add_argument('-a', '--all-states', action='store_true', help='搜索所有试验状态，覆盖默认的"进行中"状态')
+    parser.add_argument('-d', '--drugs-name', help='药物名称')
     parser.add_argument('-p', '--pages', type=int, help='最大页数，如果不指定则获取所有页面')
     parser.add_argument('-o', '--output', help='输出文件名，默认为日期_关键词.md')
     parser.add_argument('-l', '--local', action='store_true', help='使用本地文件作为响应内容，而不是从网站获取')
-    parser.add_argument('-d', '--debug', action='store_true', help='调试模式，保存更多中间文件')
+    parser.add_argument('--debug', action='store_true', help='调试模式，保存更多中间文件')
     parser.add_argument('--detail', action='store_true', help='获取每个临床试验的详细信息')
     parser.add_argument('--no-auto-pages', action='store_true', help='不自动获取所有页面，只获取第一页')
 
