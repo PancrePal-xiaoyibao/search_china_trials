@@ -10,7 +10,6 @@ from bs4 import BeautifulSoup
 import logging
 import argparse
 import time
-
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -27,20 +26,30 @@ class ChinaDrugTrialsSearcher:
         初始化搜索器
         """
         self.base_url = "http://www.chinadrugtrials.org.cn"
-        self.search_url = f"{self.base_url}/clinicaltrials.searchlist.dhtml"
+        self.search_url = f"{self.base_url}/clinicaltrials.searchlist.dhtml" # 修正为正确的搜索结果URL
         self.session = requests.Session()
         self.headers = {
-            "Host": "www.chinadrugtrials.org.cn",
-            "Cache-Control": "max-age=0",
-            "Origin": "http://www.chinadrugtrials.org.cn",
-            "Upgrade-Insecure-Requests": "1",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Referer": "http://www.chinadrugtrials.org.cn/clinicaltrials.searchlist.dhtml",
             "Accept-Language": "zh-CN,zh;q=0.9",
+            "Cache-Control": "max-age=0",
             "Connection": "keep-alive",
             "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": "http://www.chinadrugtrials.org.cn",
+            "Referer": "http://www.chinadrugtrials.org.cn/clinicaltrials.searchlist.dhtml",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
         }
+        
+        # 设置Cookie
+        self.cookies = {
+            "FSSBBIl1UgzbN7N80S": "4NXiRDf8zFgRh0Dwjpupk1CBWco1dQwyo4E.2kcgsHtkpxmIpxj0jM4rOOfnHSCt",
+            "token": "we7piDj4EhlmQadtUeVdVpn8W6-QTSrHGXHLfaaHcGcmff3oV98wUulXjuG",
+            "FSSBBIl1UgzbN7N80T": "3rhmUE9qYsygSBEBCVmu6_UP.459xWkrwlURuzFQkDtW1E62v14PNegineEq9BOFpoueZXLejZbWfN_gmWMJS4JNFkkEFSGqH1Q7dd4NvO.ye3z9o62_iJ6fZYYewWQ.maPX53Ev52tX9O6RYOPLlUrml0Pd9iErKh8wiBQei1xlNusQyYECWkOXLJ9qBs8gVYy_VtYi7utNUw8rHSIPmqZr.e4akqnIZhcE1K3bBB_WIINd5LfxqxCaeXlpw4Tts5IcPnT.CoW1ZYwiIzMNyLlnUz0UAz889bc9gQvP6p.KIHansaq8Yn.HG9aYGQFj_4x0"
+        }
+        
+        # 将Cookie添加到会话中
+        for key, value in self.cookies.items():
+            self.session.cookies.set(key, value)
         
         # 初始化会话，访问首页获取Cookie
         logging.info("初始化会话，访问首页获取Cookie")
@@ -70,10 +79,12 @@ class ChinaDrugTrialsSearcher:
 
         logging.info(f"获取临床试验详细信息: {trial_id}")
 
+
         try:
             response = self.session.post(detail_url, headers=self.headers, data=data)
             status_code = response.status_code
             logging.info(f"请求返回状态码: {status_code}")
+            logging.info(f"实际请求URL: {response.url}")
 
             if status_code not in [200, 202]:
                 logging.error(f"请求失败，状态码: {status_code}")
@@ -120,7 +131,7 @@ class ChinaDrugTrialsSearcher:
 
         return detail
 
-    def search(self, keywords, page, indication="", reg_no="", state="进行中", drugs_name="", ckm_index=""):
+    def search(self, keywords, page=1, indication="", reg_no="", state="", drugs_name="", ckm_index=""):
         """
         搜索临床试验
         
@@ -158,10 +169,11 @@ class ChinaDrugTrialsSearcher:
         logging.info(f"搜索参数: 关键词={keywords}, 页码={page}, 适应症={indication}, 登记号={reg_no}, 状态={state}, 药物名称={drugs_name}, ckm_index={ckm_index}")
 
         try:
-            # 使用会话对象发送请求
+            # 使用会话对象发送POST请求，根据用户提供的curl命令
             response = self.session.post(self.search_url, headers=self.headers, data=data)
             status_code = response.status_code
             logging.info(f"请求返回状态码: {status_code}")
+            logging.info(f"实际请求URL: {response.url}")
 
             # 接受 200 和 202 状态码
             if status_code not in [200, 202]:
@@ -197,12 +209,25 @@ class ChinaDrugTrialsSearcher:
                 os.makedirs(output_dir)
                 logging.info(f"创建输出目录: {output_dir}")
 
+            # 添加调试信息检查response内容
+            logging.info(f"Response内容长度: {len(response.text)}")
+            logging.info(f"Response状态码: {response.status_code}")
+            logging.info(f"Response URL: {response.url}")
+            logging.info(f"Response headers: {dict(response.headers)}")
+            
+            # 检查response中是否包含关键的搜索结果标识
+            has_search_results = "暂无数据" in response.text or "CTR" in response.text
+            logging.info(f"Response是否包含搜索结果标识: {has_search_results}")
+            
+            # 检查是否包含分页信息
+            has_pagination = "当前第" in response.text and "页" in response.text
+            logging.info(f"Response是否包含分页信息: {has_pagination}")
+            
             # 保存原始响应内容到文件，用于调试
             debug_file = os.path.join(output_dir, f"response_page_{page}.html")
             with open(debug_file, "w", encoding="utf-8") as f:
                 f.write(response.text)
             logging.info(f"已保存原始响应内容到 {debug_file}")
-
             
             # 额外保存一个带时间戳的临时文件用于对比
             import time
@@ -227,9 +252,14 @@ class ChinaDrugTrialsSearcher:
         logging.info("开始解析HTML内容")
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        # 查找表格
+        # 查找表格 - 直接查找searchTable
         table = soup.find('table', class_='searchTable')
+        logging.info(f"直接查找searchTable结果: {table is not None}")
+        
         if not table:
+            # 尝试查找所有table元素进行调试
+            all_tables = soup.find_all('table')
+            logging.info(f"页面中所有table元素: {[t.get('class') for t in all_tables]}")
             logging.error("未找到临床试验表格")
             return []
 
@@ -295,23 +325,31 @@ class ChinaDrugTrialsSearcher:
 
         soup = BeautifulSoup(html_content, 'html.parser')
 
-        # 查找分页信息
-        pagination = soup.select_one('.pagination-info')
-        if pagination:
-            text = pagination.get_text().strip()
-            match = re.search(r'共(\d+)页', text)
+        # 查找分页信息 - 新的HTML结构中，分页信息在class为pageInfo的div中
+        page_info = soup.select_one('div.pageInfo')
+        if page_info:
+            text = page_info.get_text().strip()
+            # 格式为"当前第 <i>1</i> 页，共 <i>3</i> 页，共 <i>54</i> 条记录"
+            match = re.search(r'共\s*<i>(\d+)</i>\s*页', str(page_info))
             if match:
                 total_pages = int(match.group(1))
                 logging.info(f"找到分页信息，总页数: {total_pages}")
                 return total_pages
 
-        # 尝试从分页控件中提取
-        pagination_controls = soup.select('.pagination li a')
+        # 尝试从分页控件中提取 - 新的HTML结构中，分页控件在class为pagination的ul中
+        pagination_controls = soup.select('ul.pagination li a')
         if pagination_controls:
             page_numbers = []
             for a in pagination_controls:
-                if a.text.isdigit():
-                    page_numbers.append(int(a.text))
+                # 提取数字页码
+                if a.text.strip().isdigit():
+                    page_numbers.append(int(a.text.strip()))
+                # 检查onclick属性中的gotopage函数参数
+                elif 'onclick' in a.attrs:
+                    onclick = a['onclick']
+                    page_match = re.search(r'gotopage\(\s*(\d+)\s*\)', onclick)
+                    if page_match:
+                        page_numbers.append(int(page_match.group(1)))
 
             if page_numbers:
                 max_page = max(page_numbers)
@@ -520,10 +558,11 @@ def main():
     trials = searcher.search_all_pages(
         search_keywords,
         filter_keywords,
-        args.pages,
-        args.indication or "",
-        args.reg_no or "",
-        args.state or "",
+        args.pages, # 最大页数
+        args.indication or "", # 适应症
+        args.reg_no or "", # 登记号
+        args.state or "进行中" if not args.all_states else "", # 试验状态
+        args.drugs_name or "", # 药物名称·
         "1",  # ckm_index
         args.local,  # 使用本地文件
         not args.no_auto_pages  # 自动获取所有页面
